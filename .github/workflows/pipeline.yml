@@ -26,19 +26,17 @@ jobs:
   deploy:
     needs: test
     # Self-hosted runner uses your PC public IP (already in CK whitelist).
-  # Install runner: see GITHUB_SETUP.md section "Self-hosted Runner".
     runs-on: self-hosted
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        shell: pwsh
+        run: python -m pip install -r requirements.txt
       - name: Write config.yaml from secrets
+        shell: pwsh
         run: |
-          cat > config.yaml <<EOF
+          @"
           oss:
             endpoint: "${{ secrets.OSS_ENDPOINT }}"
             bucket: "${{ secrets.OSS_BUCKET }}"
@@ -52,24 +50,32 @@ jobs:
             database: "db_price_index"
           project:
             base_date: "2025-05-17"
-          EOF
+          "@ | Set-Content config.yaml -Encoding utf8
       - name: Runner outbound IP (for CK whitelist debugging)
-        shell: bash
+        shell: pwsh
         run: |
-          echo "Runner IP: $(curl -s https://api.ipify.org || echo unknown)"
+          try { $ip = (Invoke-RestMethod -Uri "https://api.ipify.org") } catch { $ip = "unknown" }
+          Write-Host "Runner IP: $ip"
       - name: Test OSS connection
+        shell: pwsh
         run: python src/test_connection.py oss
       - name: Download CSV from OSS
+        shell: pwsh
         run: python src/oss_downloader.py --limit ${{ github.event.inputs.import_limit || '3' }}
       - name: Test ClickHouse connection
+        shell: pwsh
         run: python src/test_connection.py ck
       - name: Ensure ClickHouse tables exist
+        shell: pwsh
         run: python src/ck_loader.py ddl
       - name: Import OSS data into ClickHouse
+        shell: pwsh
         run: python src/ck_loader.py import --limit ${{ github.event.inputs.import_limit || '3' }}
       - name: Calculate daily price index
+        shell: pwsh
         run: python src/ck_loader.py sql sql/calc_daily_index.sql
       - name: Generate trend chart
+        shell: pwsh
         run: python src/plot_index.py
       - name: Upload chart artifact
         uses: actions/upload-artifact@v4
