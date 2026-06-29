@@ -1,0 +1,64 @@
+name: OSS to ClickHouse Pipeline
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Unit tests
+        run: pytest tests/ -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Write config.yaml from secrets
+        run: |
+          cat > config.yaml <<EOF
+          oss:
+            endpoint: "${{ secrets.OSS_ENDPOINT }}"
+            bucket: "${{ secrets.OSS_BUCKET }}"
+            access_key_id: "${{ secrets.OSS_ACCESS_KEY_ID }}"
+            access_key_secret: "${{ secrets.OSS_ACCESS_KEY_SECRET }}"
+          clickhouse:
+            host: "${{ secrets.CK_HOST }}"
+            port: ${{ secrets.CK_PORT || 8123 }}
+            user: "${{ secrets.CK_USER }}"
+            password: "${{ secrets.CK_PASSWORD }}"
+            database: "db_price_index"
+          project:
+            base_date: "2025-05-17"
+          EOF
+      - name: Test cloud connections
+        run: |
+          python src/test_connection.py oss
+          python src/test_connection.py ck
+      - name: Sync OSS to local and import ClickHouse
+        run: |
+          python src/oss_downloader.py --limit 3
+          python src/ck_loader.py ddl
+          python src/ck_loader.py import --limit 3
+          python src/ck_loader.py sql sql/calc_daily_index.sql
+          python src/plot_index.py
+      - name: Upload chart artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: price-index-chart
+          path: report/price_index_trend.png

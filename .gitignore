@@ -1,0 +1,15 @@
+config.yaml
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.log
+
+# large dataset - keep local / OSS only
+data/data/daily_price/
+data/data/*.csv
+
+# generated charts (CI rebuilds)
+report/*.png
+!report/.gitkeep

@@ -1,0 +1,18 @@
+# 复制为 config.yaml 后填写，config.yaml 已在 .gitignore 中
+# 不要把真实密钥提交到 Git！
+
+oss:
+  endpoint: "https://oss-cn-hangzhou.aliyuncs.com"
+  bucket: "your-bucket-name"
+  access_key_id: "YOUR_ACCESS_KEY_ID"
+  access_key_secret: "YOUR_ACCESS_KEY_SECRET"
+
+clickhouse:
+  host: "your-ck-host.public.clickhouse.ads.aliyuncs.com"
+  port: 9000
+  user: "your_username"
+  password: "YOUR_CK_PASSWORD"
+  database: "db_price_index"
+
+project:
+  base_date: "2025-05-17"
