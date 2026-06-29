@@ -4,6 +4,11 @@ on:
   push:
     branches: [dev, main]
   workflow_dispatch:
+    inputs:
+      import_limit:
+        description: Number of daily CSV files to sync from OSS
+        default: "3"
+        required: false
 
 jobs:
   test:
@@ -20,7 +25,9 @@ jobs:
 
   deploy:
     needs: test
-    runs-on: ubuntu-latest
+    # Self-hosted runner uses your PC public IP (already in CK whitelist).
+  # Install runner: see GITHUB_SETUP.md section "Self-hosted Runner".
+    runs-on: self-hosted
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
@@ -46,17 +53,24 @@ jobs:
           project:
             base_date: "2025-05-17"
           EOF
-      - name: Test cloud connections
+      - name: Runner outbound IP (for CK whitelist debugging)
+        shell: bash
         run: |
-          python src/test_connection.py oss
-          python src/test_connection.py ck
-      - name: Sync OSS to local and import ClickHouse
-        run: |
-          python src/oss_downloader.py --limit 3
-          python src/ck_loader.py ddl
-          python src/ck_loader.py import --limit 3
-          python src/ck_loader.py sql sql/calc_daily_index.sql
-          python src/plot_index.py
+          echo "Runner IP: $(curl -s https://api.ipify.org || echo unknown)"
+      - name: Test OSS connection
+        run: python src/test_connection.py oss
+      - name: Download CSV from OSS
+        run: python src/oss_downloader.py --limit ${{ github.event.inputs.import_limit || '3' }}
+      - name: Test ClickHouse connection
+        run: python src/test_connection.py ck
+      - name: Ensure ClickHouse tables exist
+        run: python src/ck_loader.py ddl
+      - name: Import OSS data into ClickHouse
+        run: python src/ck_loader.py import --limit ${{ github.event.inputs.import_limit || '3' }}
+      - name: Calculate daily price index
+        run: python src/ck_loader.py sql sql/calc_daily_index.sql
+      - name: Generate trend chart
+        run: python src/plot_index.py
       - name: Upload chart artifact
         uses: actions/upload-artifact@v4
         with:

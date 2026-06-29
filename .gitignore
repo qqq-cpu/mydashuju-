@@ -13,3 +13,6 @@ data/data/*.csv
 # generated charts (CI rebuilds)
 report/*.png
 !report/.gitkeep
+
+# local helper / runner (not for repo)
+_scripts/set_github_secrets.py
