@@ -20,9 +20,8 @@ git commit -m "feat: price index project with OSS, ClickHouse and CI"
 
 ```powershell
 git branch -M main
-git remote add origin https://github.com/你的用户名/price-index.git
+git remote add origin git@github.com:qqq-cpu/mydashuju-.git
 git push -u origin main
-git checkout -b dev
 git push -u origin dev
 ```
 

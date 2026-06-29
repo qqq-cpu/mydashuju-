@@ -39,7 +39,7 @@ jobs:
             access_key_secret: "${{ secrets.OSS_ACCESS_KEY_SECRET }}"
           clickhouse:
             host: "${{ secrets.CK_HOST }}"
-            port: ${{ secrets.CK_PORT || 8123 }}
+            port: ${{ secrets.CK_PORT }}
             user: "${{ secrets.CK_USER }}"
             password: "${{ secrets.CK_PASSWORD }}"
             database: "db_price_index"
