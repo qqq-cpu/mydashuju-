@@ -25,16 +25,24 @@ jobs:
 
   deploy:
     needs: test
-    # Self-hosted runner uses your PC public IP (already in CK whitelist).
+    # Self-hosted runner on your PC (CK whitelist already includes your public IP).
     runs-on: self-hosted
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install dependencies
+    defaults:
+      run:
         shell: powershell
+        working-directory: E:\CodexW\dashuju\price-index
+    env:
+      REPO_ROOT: E:\CodexW\dashuju\price-index
+    steps:
+      - name: Sync latest code (SSH, skip HTTPS checkout)
+        run: |
+          git fetch origin
+          git checkout ${{ github.ref_name }}
+          git pull origin ${{ github.ref_name }}
+      - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Write config.yaml from secrets
-        shell: powershell
         run: |
           @"
           oss:
@@ -52,33 +60,25 @@ jobs:
             base_date: "2025-05-17"
           "@ | Set-Content config.yaml -Encoding utf8
       - name: Runner outbound IP (for CK whitelist debugging)
-        shell: powershell
         run: |
           try { $ip = (Invoke-RestMethod -Uri "https://api.ipify.org") } catch { $ip = "unknown" }
           Write-Host "Runner IP: $ip"
       - name: Test OSS connection
-        shell: powershell
         run: python src/test_connection.py oss
       - name: Download CSV from OSS
-        shell: powershell
         run: python src/oss_downloader.py --limit ${{ github.event.inputs.import_limit || '3' }}
       - name: Test ClickHouse connection
-        shell: powershell
         run: python src/test_connection.py ck
       - name: Ensure ClickHouse tables exist
-        shell: powershell
         run: python src/ck_loader.py ddl
       - name: Import OSS data into ClickHouse
-        shell: powershell
         run: python src/ck_loader.py import --limit ${{ github.event.inputs.import_limit || '3' }}
       - name: Calculate daily price index
-        shell: powershell
         run: python src/ck_loader.py sql sql/calc_daily_index.sql
       - name: Generate trend chart
-        shell: powershell
         run: python src/plot_index.py
       - name: Upload chart artifact
         uses: actions/upload-artifact@v4
         with:
           name: price-index-chart
-          path: report/price_index_trend.png
+          path: E:\CodexW\dashuju\price-index\report\price_index_trend.png
